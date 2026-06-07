@@ -1,7 +1,12 @@
+// 1. Global module fragment: Where standard preprocessor headers MUST live
+module;
+
+#include <vector>
+
+// 2. Module declaration
 export module Vortex3D.Mesh;
 
-import <vector>;
-
+// 3. Exported namespace container
 export namespace Vortex3D {
 
     struct HalfEdge;
