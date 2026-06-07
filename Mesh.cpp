@@ -1,53 +1,46 @@
-module;
-
-// Global module fragment - standard library headers go here
-#include <vector>
-#include <memory>
-
 export module Vortex3D.Mesh;
+
+import <vector>;
 
 export namespace Vortex3D {
 
-    // Forward declarations for our topology pointers
-    struct Vertex;
     struct HalfEdge;
     struct Face;
 
-    export struct Vertex {
+    struct Vertex {
         float x, y, z;
-        HalfEdge* edge = nullptr; // One of the half-edges leaving this vertex
+        HalfEdge* edge = nullptr;
     };
 
-    export struct HalfEdge {
-        Vertex* vertex = nullptr; // Vertex at the start of this half-edge
-        HalfEdge* pair = nullptr; // The opposite half-edge
-        HalfEdge* next = nullptr; // The next half-edge in the face loop
-        Face* face = nullptr;     // The face this half-edge belongs to
+    struct HalfEdge {
+        Vertex* origin = nullptr;
+        HalfEdge* twin = nullptr;
+        HalfEdge* next = nullptr;
+        Face* face = nullptr;
     };
 
-    export struct Face {
-        HalfEdge* edge = nullptr; // One of the half-edges bounding this face
+    struct Face {
+        HalfEdge* edge = nullptr;
     };
 
-    export class Mesh {
+    class Mesh {
     private:
-        std::vector<std::unique_ptr<Vertex>> vertices;
-        std::vector<std::unique_ptr<HalfEdge>> half_edges;
-        std::vector<std::unique_ptr<Face>> faces;
+        std::vector<Vertex*> vertices;
+        std::vector<HalfEdge*> edges;
+        std::vector<Face*> faces;
 
     public:
         Mesh() = default;
-        
-        // Disable copying to enforce strict memory ownership
-        Mesh(const Mesh&) = delete;
-        Mesh& operator=(const Mesh&) = delete;
-        Mesh(Mesh&&) noexcept = default;
-        Mesh& operator=(Mesh&&) noexcept = default;
+        ~Mesh() {
+            for (auto v : vertices) delete v;
+            for (auto e : edges) delete e;
+            for (auto f : faces) delete f;
+        }
 
-        // Core memory allocators for topology
         Vertex* add_vertex(float x, float y, float z) {
-            vertices.push_back(std::make_unique<Vertex>(Vertex{x, y, z, nullptr}));
-            return vertices.back().get();
+            auto v = new Vertex{x, y, z};
+            vertices.push_back(v);
+            return v;
         }
     };
 }
