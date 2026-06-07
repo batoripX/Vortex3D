@@ -29,21 +29,15 @@ jobs:
         echo "ANDROID_NDK_HOME=${ANDROID_SDK_ROOT}/ndk/27.0.12077973" >> $GITHUB_ENV
         echo "TOOLCHAIN=${ANDROID_SDK_ROOT}/ndk/27.0.12077973/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
 
-    - name: Inspect Toolchain Binaries
-      run: |
-        echo "=== Listing available NDK compiler binaries ==="
-        ls -la ${{ env.TOOLCHAIN }} | grep clang || true
-        echo "==============================================="
-
     - name: Compile Modern C++20 Modules & JNI
       run: |
         mkdir -p build/modules build/lib/arm64-v8a
         
-        # Let's fallback to the generic binary name used in standard LLVM toolchains
-        CLANG_CC="${{ env.TOOLCHAIN }}/clang++"
+        # Select the explicit x86_64 host cross-compiler tool exposed by your runner log
+        CLANG_CC="${{ env.TOOLCHAIN }}/x86_64-linux-android35-clang++"
         
-        # If fallback generic clang++ doesn't exist, we will see it in the inspection step
-        FLAGS="-target aarch64-linux-android36 -std=c++20 -stdlib=libc++ -O3 -Wall -Wextra -shared -fPIC"
+        # Enforce proper arm64 targeting parameters matching our architecture paths
+        FLAGS="-target aarch64-linux-android35 -std=c++20 -stdlib=libc++ -O3 -Wall -Wextra -shared -fPIC"
         
         # 1. Precompile C++20 Mesh Module
         $CLANG_CC $FLAGS --precompile Mesh.cpp -o build/modules/Vortex3D.Mesh.pcm
