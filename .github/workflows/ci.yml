@@ -31,18 +31,17 @@ jobs:
 
     - name: Compile Modern C++20 Modules & JNI
       run: |
-        # Force remove old build directories to crush bad compiler cache files
         rm -rf build
         mkdir -p build/modules build/lib/arm64-v8a
         
         CLANG_CC="${{ env.TOOLCHAIN }}/x86_64-linux-android35-clang++"
         FLAGS="-target aarch64-linux-android35 -std=c++20 -stdlib=libc++ -O3 -Wall -Wextra -shared -fPIC"
         
-        # 1. Force a clean fresh compilation of the module
-        $CLANG_CC $FLAGS --precompile Mesh.cpp -o build/modules/Vortex3D.Mesh.pcm
+        # Use explicit module interface translation types to keep AST magic aligned
+        $CLANG_CC $FLAGS -x c++-module --precompile Mesh.cpp -o build/modules/Vortex3D.Mesh.pcm
         
-        # 2. Compile JNI Bridge linking the clean PCM state
-        $CLANG_CC $FLAGS -fmodule-file=build/modules/Vortex3D.Mesh.pcm \
+        # Compile JNI Bridge pointing to the cross-compiled module artifact
+        $CLANG_CC $FLAGS -fmodule-file=Vortex3D.Mesh=build/modules/Vortex3D.Mesh.pcm \
           JniBridge.cpp -o build/lib/arm64-v8a/libvortex3d_jni.so
 
     - name: Compile Kotlin & Assemble APK
