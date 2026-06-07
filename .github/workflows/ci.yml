@@ -33,9 +33,11 @@ jobs:
       run: |
         mkdir -p build/modules build/lib/arm64-v8a
         
-        # Use NDK Clang 22 targetting Android 16 (API 36 / arm64)
-        CLANG_CC="${{ env.TOOLCHAIN }}/aarch64-linux-android36-clang++"
-        FLAGS="-std=c++20 -stdlib=libc++ -O3 -Wall -Wextra -shared -fPIC"
+        # Standard ARM64 Android compiler binary name inside NDK cross-toolchains
+        CLANG_CC="${{ env.TOOLCHAIN }}/aarch64-linux-android-clang++"
+        
+        # Explicit target argument forcing API 36 (Android 16) compilation alignment
+        FLAGS="-target aarch64-linux-android36 -std=c++20 -stdlib=libc++ -O3 -Wall -Wextra -shared -fPIC"
         
         # 1. Precompile C++20 Mesh Module
         $CLANG_CC $FLAGS --precompile Mesh.cpp -o build/modules/Vortex3D.Mesh.pcm
@@ -46,15 +48,12 @@ jobs:
 
     - name: Compile Kotlin & Assemble APK
       run: |
-        # Download standalone Kotlin compiler
         curl -L -o kotlinc.zip https://github.com/JetBrains/kotlin/releases/download/v1.9.22/kotlin-compiler-1.9.22.zip
         unzip -q kotlinc.zip
         
-        # Create android directory structure for packaging
         mkdir -p apk_root/lib/arm64-v8a apk_root/res/values manifest
         cp build/lib/arm64-v8a/libvortex3d_jni.so apk_root/lib/arm64-v8a/
         
-        # Create absolute minimum Android Manifest
         cat << 'MANIFEST' > manifest/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.vortex3d.app">
             <application android:label="Vortex3D" android:hasCode="true">
@@ -68,18 +67,14 @@ jobs:
         </manifest>
         MANIFEST
 
-        # Dummy strings.xml to make compiler happy
         echo '<resources><string name="app_name">Vortex3D</string></resources>' > apk_root/res/values/strings.xml
 
-        # Compile Kotlin files to JVM bytecode class files
         ./kotlinc/bin/kotlinc -classpath ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar \
           VortexActivity.kt VortexSurfaceView.kt -d build/classes
           
-        # Convert JVM bytecode to Android Dalvik Executable (dex) bytecode
         ${ANDROID_SDK_ROOT}/build-tools/34.0.0/d8 build/classes/com/vortex3d/app/*.class \
           --lib ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar --output apk_root/
 
-        # Compile resources and package into final unsigned APK
         ${ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2 link -o build/Vortex3D-unsigned.apk \
           -I ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar \
           --manifest manifest/AndroidManifest.xml \
@@ -87,12 +82,10 @@ jobs:
           -R apk_root/res/values/strings.xml \
           --min-sdk-version 34 --target-sdk-version 34
           
-        # Add native .so libraries and dex binary into the zip package container
         cd apk_root && zip -r ../build/Vortex3D-unsigned.apk classes.dex lib/ && cd ..
 
     - name: Sign APK (Debug key)
       run: |
-        # Generate a temporary debug keystore to allow side-loading on Android
         keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey \
           -keypass android -keyalg RSA -keysize 2048 -validity 10000 \
           -dname "CN=Android Debug,O=Android,C=US"
