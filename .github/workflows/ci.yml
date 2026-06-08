@@ -1,4 +1,4 @@
-name: Vortex3D APK Build Pipeline
+Name: Vortex3D APK Build Pipeline
 
 on:
   push:
@@ -40,26 +40,24 @@ jobs:
 
     - name: Compile Kotlin & Assemble APK
       run: |
-        curl -L -o kotlinc.zip https://github.com/JetBrains/kotlin/releases/download/v1.9.22/kotlin-compiler-1.9.22.zip
-        unzip -q kotlinc.zip
-        mkdir -p apk_root/lib/arm64-v8a apk_root/res/values manifest build/gen
+        mkdir -p opt/kotlinc
+        curl -L -o opt/kotlinc.zip https://github.com/JetBrains/kotlin/releases/download/v1.9.22/kotlin-compiler-1.9.22.zip
+        unzip -q opt/kotlinc.zip -d opt/
+        
+        mkdir -p apk_root/lib/arm64-v8a apk_root/res/values manifest build/gen build/compiled_res
         cp build/lib/arm64-v8a/libvortex3d_jni.so apk_root/lib/arm64-v8a/
         
-        # 1. Create Manifest
-        cat << 'MANIFEST' > manifest/AndroidManifest.xml
+        cat << 'INNER_EOF' > manifest/AndroidManifest.xml
         <manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.vortex3d.app"><application android:label="Vortex3D" android:hasCode="true"><activity android:name="com.vortex3d.app.VortexActivity" android:exported="true"><intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter></activity></application></manifest>
-        MANIFEST
+        INNER_EOF
 
-        # 2. Compile Resources properly
         echo '<resources><string name="app_name">Vortex3D</string></resources>' > apk_root/res/values/strings.xml
-        ${ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2 compile apk_root/res/values/strings.xml -o build/res.flat
+        ${ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2 compile --dir apk_root/res/ -o build/compiled_res/
         
-        # 3. Compile Kotlin
-        ./kotlinc/bin/kotlinc -classpath ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar VortexActivity.kt VortexSurfaceView.kt -d build/classes
+        ./opt/kotlinc/bin/kotlinc -classpath ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar VortexActivity.kt VortexSurfaceView.kt -d build/classes
         ${ANDROID_SDK_ROOT}/build-tools/34.0.0/d8 build/classes/com/vortex3d/app/*.class --lib ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar --output apk_root/
 
-        # 4. Link with compiled flat resource
-        ${ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2 link -o build/Vortex3D-unsigned.apk -I ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar --manifest manifest/AndroidManifest.xml -R build/res.flat --min-sdk-version 34 --target-sdk-version 34
+        ${ANDROID_SDK_ROOT}/build-tools/34.0.0/aapt2 link -o build/Vortex3D-unsigned.apk -I ${ANDROID_SDK_ROOT}/platforms/android-34/android.jar --manifest manifest/AndroidManifest.xml -R build/compiled_res/*.flat --min-sdk-version 34 --target-sdk-version 34
           
         cd apk_root && zip -r ../build/Vortex3D-unsigned.apk classes.dex lib/ && cd ..
 
