@@ -1,4 +1,4 @@
-Name: Vortex3D APK Build Pipeline
+name: Vortex3D APK Build Pipeline
 
 on:
   push:
