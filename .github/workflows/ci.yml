@@ -17,48 +17,29 @@ jobs:
       with:
         java-version: '17'
         distribution: 'zulu'
+        cache: 'gradle'
 
     - name: Install Android SDK & NDK
       uses: android-actions/setup-android@v3
 
-    - name: Download Kotlin Native Compiler
+    - name: Setup Android NDK Environment Variables
       run: |
-        mkdir -p opt/kotlinx
-        curl -L https://github.com/JetBrains/kotlin/releases/download/v2.0.0/kotlin-native-linux-x86_64-2.0.0.tar.gz -o opt/kotlinx/konan.tar.gz
-        tar -xzf opt/kotlinx/konan.tar.gz -C opt/kotlinx/
-        echo "$GITHUB_WORKSPACE/opt/kotlinx/kotlin-native-linux-x86_64-2.0.0/bin" >> $GITHUB_PATH
+        echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
+        echo "NDK_LLVM=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
 
     - name: Compile C++20 Clang Modules
       run: |
-        # Cross-compiling for Android ARM64 architecture natively
-        export NDK_LLVM="$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin"
+        # Cross-compiling your engine object files natively using the runner's NDK binaries
         $NDK_LLVM/clang++ -std=c++20 -target aarch64-linux-android24 \
           -c Mesh.cpp Main.cpp
         $NDK_LLVM/llvm-ar rcs libvortex3d_engine.a Mesh.o Main.o
 
-    - name: Generate Kotlin Native Interop Bindings
+    - name: Compile Native App Package via Gradle
       run: |
-        cinterop -def engine.def -compiler-opts "-std=c++20" -o engine_bindings.klib
-
-    - name: Compile Kotlin Native Binary
-      run: |
-        konanc JniBridge.kt VortexActivity.kt VortexSurfaceView.kt \
-          -target android_arm64 \
-          -library engine_bindings.klib \
-          -produce dynamic \
-          -o libvortex3d_engine
-
-    - name: Assemble and Package APK Manifest
-      run: |
-        mkdir -p src/main/jniLibs/arm64-v8a
-        cp libvortex3d_engine.so src/main/jniLibs/arm64-v8a/
-        # Build the final unaligned debug package split
+        # Grant executable permissions to your repository wrapper
+        chmod +x gradlew
+        # Let Gradle handle the Kotlin Native component caching and artifact processing safely
         ./gradlew assembleDebug
-
-    - name: Sign APK (Debug key)
-      run: |
-        echo "Signing built package output..."
-        # Standard debug keystore signature processing
 
     - name: Upload Finished APK Artifact
       uses: actions/upload-artifact@v4
