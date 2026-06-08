@@ -47,7 +47,7 @@ jobs:
         curl -L -o opt/kotlinc.zip https://github.com/JetBrains/kotlin/releases/download/v1.9.22/kotlin-compiler-1.9.22.zip
         unzip -q opt/kotlinc.zip -d opt/
         
-        mkdir -p apk_root/lib/arm64-v8a apk_root/res/values manifest build/gen build/compiled_res
+        mkdir -p apk_root/lib/arm64-v8a apk_root/res/values manifest build/compiled_res
         cp build/lib/arm64-v8a/libvortex3d_jni.so apk_root/lib/arm64-v8a/
         
         cat << 'INNER_EOF' > manifest/AndroidManifest.xml
