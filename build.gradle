@@ -13,13 +13,13 @@ plugins {
 }
 
 android {
-    namespace 'com.vortex3d.engine'
-    compileSdk 35
+    namespace 'com.vortex3d.app'
+    compileSdk 36
 
     defaultConfig {
-        applicationId "com.vortex3d.engine"
-        minSdk 24
-        targetSdk 35
+        applicationId "com.vortex3d.app"
+        minSdk 29
+        targetSdk 36
         versionCode 1
         versionName "1.0"
     }
