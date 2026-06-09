@@ -1,16 +1,11 @@
-buildscript {
-    repositories {
-        google()
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.5.2'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.4.0'
-    }
-}
-
 plugins {
     id 'com.android.application'
+    id 'org.jetbrains.kotlin.multiplatform' version '2.4.0'
+}
+
+repositories {
+    google()
+    mavenCentral()
 }
 
 android {
@@ -28,15 +23,34 @@ android {
     sourceSets {
         main {
             manifest.srcFile 'AndroidManifest.xml'
-            java.srcDirs = ['.']
             res.srcDirs = ['res']
-            jniLibs.srcDirs = ['build/nativeLibs']
         }
     }
+}
 
-    packaging {
-        resources {
-            excludes += '/META-INF/**'
+kotlin {
+    // Dynamically targeting ARM64 Android devices via Kotlin Native
+    androidNativeArm64("nativeEngine") {
+        binaries.sharedLib {
+            baseName = "vortex3d_engine"
+            // Link your compiled static C++ archive directly into the output build target
+            linkerOpts("-L.", "-lvortex3d_engine")
+        }
+        
+        compilations.main {
+            cinterops {
+                engine {
+                    defFile = file("engine.def")
+                    compilerOpts("-std=c++20")
+                }
+            }
+            
+            // Map your standalone Kotlin source files cleanly into this native compile block
+            kotlinSourceSets {
+                nativeEngineMain {
+                    kotlin.srcDirs = ['.']
+                }
+            }
         }
     }
 }
