@@ -20,29 +20,51 @@ jobs:
         cache: 'gradle'
 
     - name: Install Android SDK & NDK
-      uses: android-actions/setup-android@v3
+      uses: actions/setup-android@v3
+
+    - name: Download Standalone Kotlin Native Toolchain
+      run: |
+        # Pull down the explicit compiler package matching our build pipeline requirements
+        curl -L -o kotlin-native.tar.gz https://github.com/JetBrains/kotlin/releases/download/v2.0.0/kotlin-native-linux-x86_64-2.0.0.tar.gz
+        tar -xzf kotlin-native.tar.gz
+        echo "$GITHUB_WORKSPACE/kotlin-native-linux-x86_64-2.0.0/bin" >> $GITHUB_PATH
 
     - name: Setup Android NDK Environment Variables
       run: |
         echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
         echo "NDK_LLVM=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
 
-    - name: Compile C++20 Clang Modules
+    - name: Compile C++20 Clang Modules & Interface
       run: |
-        # Cross-compiling your engine object files natively using the runner's NDK binaries
-        $NDK_LLVM/clang++ -std=c++20 -target aarch64-linux-android24 \
-          -c Mesh.cpp Main.cpp
-        $NDK_LLVM/llvm-ar rcs libvortex3d_engine.a Mesh.o Main.o
+        # Compile all separate source parts into position using Clang 22 parameters
+        $NDK_LLVM/clang++ -std=c++20 -target aarch64-linux-android24 -c Mesh.cpp Main.cpp VortexDiagnostics.cpp VortexBridge.cpp
+        
+        # Build the unified static library mapping required by engine.def
+        $NDK_LLVM/llvm-ar rcs libvortex3d_engine.a Mesh.o Main.o VortexDiagnostics.o VortexBridge.o
 
-    - name: Compile Native App Package via Gradle
+    - name: Execute Kotlin Native Interop & Compilation
       run: |
-        # Grant executable permissions to your repository wrapper
+        # Generate the interop bindings definition mapping package
+        cinterop -def engine.def -compiler-opts "-std=c++20" -target android_arm64 -o vortex3d_interop.klib
+        
+        # Create output container folder for Gradle mapping assignment
+        mkdir -p build/nativeLibs/arm64-v8a
+        
+        # Compile the Kotlin source files directly into a high-performance native shared object
+        konanc -target android_arm64 \
+          -library vortex3d_interop.klib \
+          -produce dynamic \
+          -linker-options "-L. -lvortex3d_engine" \
+          JniBridge.kt VortexActivity.kt VortexSurfaceView.kt \
+          -o build/nativeLibs/arm64-v8a/libvortex3d_engine.so
+
+    - name: Compile Native APK Package via Gradle
+      run: |
         chmod +x gradlew
-        # Let Gradle handle the Kotlin Native component caching and artifact processing safely
         ./gradlew assembleDebug
 
     - name: Upload Finished APK Artifact
       uses: actions/upload-artifact@v4
       with:
         name: Vortex3D-Debug-APK
-        path: app/build/outputs/apk/debug/*.apk
+        path: build/outputs/apk/debug/*.apk
