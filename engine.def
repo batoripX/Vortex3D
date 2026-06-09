@@ -1,6 +1,5 @@
-headers = Main.cpp Mesh.cpp
+headers = VortexBridge.cpp
 language = C++
 compilerOpts = -std=c++20
 
-# Force Kotlin Native to link against your compiled native library
 staticLibraries = libvortex3d_engine.a
