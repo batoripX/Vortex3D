@@ -3,34 +3,30 @@ package com.vortex3d.app
 import kotlinx.cinterop.*
 import platform.android.*
 import java.io.File
+import com.vortex3d.engine.interop.* // Bindings mapped from engine.def
 
 object VortexNativeBridge {
 
     init {
-        try {
-            // Force create the sandboxed logging directory path so std::fopen never fails
-            val logDir = File("/sdcard/Android/data/com.vortex3d.app/files")
-            if (!logDir.exists()) {
-                logDir.mkdirs()
-            }
-            
-            // Try loading your native binary safely
-            System.loadLibrary("vortex3d_engine")
-        } catch (e: Exception) {
-            println("VORTEX_FATAL: Failed to initialize native engine library: ${e.message}")
+        // Ensure diagnostic directory exists before engine loops start
+        val logDir = File("/sdcard/Android/data/com.vortex3d.app/files")
+        if (!logDir.exists()) {
+            logDir.mkdirs()
         }
     }
 
     fun bindNativeSurface(surfaceWindowPointer: COpaquePointer?) {
         if (surfaceWindowPointer == null) return
-        // C++ bridge binding logic
+        // Call your raw C++ C20 Engine directly via its binding
+        vortex_api_bind_surface(surfaceWindowPointer)
     }
 
     fun notifyDisplayResize(width: Int, height: Int) {
         if (width <= 0 || height <= 0) return
+        vortex_api_resize_display(width, height)
     }
 
     fun releaseNativeEngine() {
-        // Cleanup logic
+        vortex_api_shutdown()
     }
 }
