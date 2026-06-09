@@ -19,38 +19,34 @@ jobs:
         distribution: 'zulu'
         cache: 'gradle'
 
-    - name: Install Android SDK & NDK
-      uses: actions/setup-android@v3
-
     - name: Download Standalone Kotlin Native Toolchain
       run: |
-        # Pull down the explicit compiler package matching our build pipeline requirements
         curl -L -o kotlin-native.tar.gz https://github.com/JetBrains/kotlin/releases/download/v2.0.0/kotlin-native-linux-x86_64-2.0.0.tar.gz
         tar -xzf kotlin-native.tar.gz
         echo "$GITHUB_WORKSPACE/kotlin-native-linux-x86_64-2.0.0/bin" >> $GITHUB_PATH
 
-    - name: Setup Android NDK Environment Variables
+    - name: Pin Explicit Stable Android NDK r29
+      uses: android-actions/setup-android@v3
+      with:
+        # Dynamically grabs NDK r29 from Google's servers to back our C++20 standard module features
+        ndk-version: '29.0.1'
+
+    - name: Setup Precise NDK Path Environment Variables
       run: |
-        echo "ANDROID_NDK_HOME=$ANDROID_NDK_LATEST_HOME" >> $GITHUB_ENV
-        echo "NDK_LLVM=$ANDROID_NDK_LATEST_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
+        echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.1" >> $GITHUB_ENV
+        echo "NDK_LLVM=$ANDROID_HOME/ndk/29.0.1/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_ENV
 
     - name: Compile C++20 Clang Modules & Interface
       run: |
-        # Compile all separate source parts into position using Clang 22 parameters
-        $NDK_LLVM/clang++ -std=c++20 -target aarch64-linux-android24 -c Mesh.cpp Main.cpp VortexDiagnostics.cpp VortexBridge.cpp
-        
-        # Build the unified static library mapping required by engine.def
+        # Target set explicitly to android29 matching our architecture minimum configuration
+        $NDK_LLVM/clang++ -std=c++20 -target aarch64-linux-android29 -c Mesh.cpp Main.cpp VortexDiagnostics.cpp VortexBridge.cpp
         $NDK_LLVM/llvm-ar rcs libvortex3d_engine.a Mesh.o Main.o VortexDiagnostics.o VortexBridge.o
 
     - name: Execute Kotlin Native Interop & Compilation
       run: |
-        # Generate the interop bindings definition mapping package
         cinterop -def engine.def -compiler-opts "-std=c++20" -target android_arm64 -o vortex3d_interop.klib
-        
-        # Create output container folder for Gradle mapping assignment
         mkdir -p build/nativeLibs/arm64-v8a
         
-        # Compile the Kotlin source files directly into a high-performance native shared object
         konanc -target android_arm64 \
           -library vortex3d_interop.klib \
           -produce dynamic \
@@ -60,6 +56,7 @@ jobs:
 
     - name: Compile Native APK Package via Gradle
       run: |
+        gradle wrapper
         chmod +x gradlew
         ./gradlew assembleDebug
 
